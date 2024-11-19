@@ -14,7 +14,7 @@ const PORT = 4000;
 app.use(express.json());
 
 // MongoDB connection string
-const uri = "mongodb+srv://forumUser:alpHa43@cluster0.pynmp.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+const uri = "mongodb+srv://myUsername:mypassword@cluster0.pynmp.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 
 mongoose.connect(uri)
     .then(() => console.log('Connected to MongoDB Atlas'))
