@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutiVision Community Forum</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <h1>Welcome to the Community Forum</h1>
+    </header>
+    <main>
+        <section id="forum">
+            <h2>Forum Posts</h2>
+            <div id="posts"></div>
+        </section>
+        <section id="postForm">
+            <h3>Create a New Post</h3>
+            <form id="createPostForm">
+                <input type="text" id="username" placeholder="Your Name" required>
+                <textarea id="postContent" placeholder="Write your post here..." required></textarea>
+                <button type="submit">Submit Post</button>
+            </form>
+        </section>
+    </main>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io(); // Initialize Socket.IO
+
+        document.getElementById('createPostForm').addEventListener('submit', async function(event) {
+            event.preventDefault(); // Prevent page reload on form submission
+
+            const username = document.getElementById('username').value;
+            const postContent = document.getElementById('postContent').value;
+
+            const response = await fetch('/api/posts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, content: postContent })
+            });
+
+            if (response.ok) {
+                document.getElementById('createPostForm').reset();
+            } else {
+                console.error('Failed to create post');
+            }
+        });
+
+        // Fetch and display all posts
+        async function fetchPosts() {
+            try {
+                const response = await fetch('/api/posts');
+                if (response.ok) {
+                    const posts = await response.json();
+                    const postsContainer = document.getElementById('posts');
+                    postsContainer.innerHTML = '';
+
+                    posts.forEach(post => {
+                        const postElement = document.createElement('div');
+                        postElement.classList.add('post');
+                        postElement.innerHTML = `
+                            <h4>${post.username}</h4>
+                            <p>${post.content}</p>
+                            <small>${new Date(post.timestamp).toLocaleString()}</small>
+                            <div class="comments">
+                                <h5>Comments</h5>
+                                <div id="comments-${post._id}"></div>
+                                <form class="commentForm" data-post-id="${post._id}">
+                                    <input type="text" placeholder="Your Comment" required>
+                                    <button type="submit">Add Comment</button>
+                                </form>
+                            </div>
+                        `;
+                        postsContainer.appendChild(postElement);
+
+                        // Display existing comments
+                        if (post.comments) {
+                            post.comments.forEach(comment => {
+                                addCommentToPost(post._id, comment);
+                            });
+                        }
+                    });
+
+                    // Attach event listeners to all comment forms
+                    document.querySelectorAll('.commentForm').forEach(form => {
+                        form.addEventListener('submit', handleCommentSubmit);
+                    });
+                } else {
+                    console.error('Failed to fetch posts');
+                }
+            } catch (error) {
+                console.error('Error fetching posts:', error);
+            }
+        }
+
+        // Handle new comment submissions
+        async function handleCommentSubmit(event) {
+            event.preventDefault();
+            const postId = event.target.dataset.postId;
+            const commentText = event.target.querySelector('input').value;
+
+            const response = await fetch(`/api/posts/${postId}/comments`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: commentText, user: 'Anonymous' })
+            });
+
+            if (response.ok) {
+                const comment = await response.json();
+                addCommentToPost(postId, comment);
+                event.target.reset();
+            } else {
+                console.error('Failed to add comment');
+            }
+        }
+
+        // Add a comment to a post dynamically
+        function addCommentToPost(postId, comment) {
+            const commentsContainer = document.getElementById(`comments-${postId}`);
+            const commentElement = document.createElement('div');
+            commentElement.classList.add('comment');
+            commentElement.innerHTML = `
+                <p>${comment.user}: ${comment.text}</p>
+                <small>${new Date(comment.createdAt).toLocaleString()}</small>
+            `;
+            commentsContainer.appendChild(commentElement);
+        }
+
+        // Real-time updates for new posts and comments
+        socket.on('newPost', post => {
+            fetchPosts(); // Refresh the posts dynamically
+        });
+
+        socket.on('newComment', ({ postId, comment }) => {
+            addCommentToPost(postId, comment);
+        });
+
+        // Fetch posts when the page loads
+        fetchPosts();
+    </script>
+</body>
+</html>
+
+
+
+ 
